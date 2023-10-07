@@ -1,0 +1,10 @@
+bot.name=
+bot.token=
+
+hibernate.driver_class=org.postgresql.Driver
+hibernate.connection.url=
+hibernate.connection.username=postgres
+hibernate.connection.password=postgres
+
+hibernate.dialect=org.hibernate.dialect.PostgresPlusDialect
+hibernate.show_sql=true
