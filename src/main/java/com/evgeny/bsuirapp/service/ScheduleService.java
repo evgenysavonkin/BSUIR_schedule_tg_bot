@@ -27,7 +27,7 @@ public class ScheduleService {
         return scheduleRepository.existsByChatId(chatId);
     }
 
-    public String getUserByChatId(Long chatId){
+    public String getUserGroupByChatId(Long chatId){
         Optional<User> userOpt = scheduleRepository.getUserByChatId(chatId);
         if (userOpt.isEmpty()){
             return "Не найдено";
