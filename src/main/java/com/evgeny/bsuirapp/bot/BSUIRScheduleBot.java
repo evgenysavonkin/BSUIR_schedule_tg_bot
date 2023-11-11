@@ -1,10 +1,11 @@
 package com.evgeny.bsuirapp.bot;
 
+import com.evgeny.bsuirapp.enums.ScheduleState;
+import com.evgeny.bsuirapp.enums.UserState;
 import com.evgeny.bsuirapp.models.User;
 import com.evgeny.bsuirapp.service.ScheduleService;
+import com.evgeny.bsuirapp.service.UserService;
 import org.apache.log4j.Logger;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -13,7 +14,6 @@ import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
-import java.io.IOException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
@@ -21,42 +21,24 @@ import java.util.Map;
 
 @Component
 public class BSUIRScheduleBot extends TelegramLongPollingBot {
-    //    @Value("${bot.name}")
-//    private String botName;
-//
-//    @Value("${bot.token}")
-//    private String botToken;
-    private static final Logger LOG = Logger.getLogger(BSUIRScheduleBot.class);
 
     private static final String START = "/start";
     private static final String REG = "/reg";
     private static final String MY_SCHEDULE = "/my_schedule";
     private static final String OTHER_SCHEDULE = "/other_schedule";
-
-    private final ScheduleService scheduleService;
     private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd.MM");
-    private static final String BSUIR_SCHEDULE_LINK = "https://iis.bsuir.by/schedule";
 
-    private enum UserState {
-        IDLE,
-        REGISTRATION,
-        REGISTERED,
-        CHECK_MY_SCHEDULE,
-        CHECK_OTHER_SCHEDULE,
-        RETURN
-    }
-
-    private enum ScheduleState {
-        MY,
-        OTHER
-    }
+    private final UserService userService;
+    private final ScheduleService scheduleService;
 
     private final Map<Long, UserState> userStates = new HashMap<>();
     private final Map<Long, ScheduleState> userScheduleStates = new HashMap<>();
+    private static final Logger LOG = Logger.getLogger(BSUIRScheduleBot.class);
 
     @Autowired
-    public BSUIRScheduleBot(@Value("${bot.token}") String botToken, ScheduleService scheduleService) {
+    public BSUIRScheduleBot(@Value("${bot.token}") String botToken, UserService userService, ScheduleService scheduleService) {
         super(botToken);
+        this.userService = userService;
         this.scheduleService = scheduleService;
     }
 
@@ -74,10 +56,9 @@ public class BSUIRScheduleBot extends TelegramLongPollingBot {
         switch (message) {
             case START -> {
                 LOG.debug("current Userstate is " + userState);
-                //var userFirstName = update.getMessage().getChat().getFirstName();
                 var username = update.getMessage().getChat().getUserName();
                 System.out.println("userName is " + username);
-                if (!scheduleService.isUserExists(chatId)) {
+                if (!userService.isUserExists(chatId)) {
                     startCommand(response, username);
                 } else {
                     startCommand(username, response);
@@ -85,7 +66,7 @@ public class BSUIRScheduleBot extends TelegramLongPollingBot {
             }
             case REG -> {
                 LOG.debug("current Userstate is " + userState);
-                if (scheduleService.isUserExists(chatId)) {
+                if (userService.isUserExists(chatId)) {
                     sendMessageToClient(response, "Вы уже зарегистрированы");
                     instructionsMessage(response);
                 } else if (userState == UserState.IDLE) {
@@ -106,7 +87,6 @@ public class BSUIRScheduleBot extends TelegramLongPollingBot {
                 userStates.put(chatId, UserState.CHECK_OTHER_SCHEDULE);
                 userScheduleStates.put(chatId, ScheduleState.OTHER);
                 otherScheduleMessage(response, chatId);
-
             }
             default -> {
                 if (update.getMessage().getText().equals("/return")) {
@@ -129,12 +109,10 @@ public class BSUIRScheduleBot extends TelegramLongPollingBot {
                             case "/today" ->{
                                 LOG.debug(userState);
                                 todayScheduleForUserGroup(response ,chatId);
-                                //userStates.put(chatId, UserState.RETURN);
                             }
                             case "/tomorrow" ->{
                                 LOG.debug(userState);
                                 tomorrowScheduleForUserGroup(response, chatId);
-                                //userStates.put(chatId, UserState.RETURN);
                             }
                             case "/week" ->{
 
@@ -148,41 +126,23 @@ public class BSUIRScheduleBot extends TelegramLongPollingBot {
     }
 
     private void todayScheduleForUserGroup(SendMessage sendMessage ,Long chatId){
-        var userGroup = scheduleService.getUserGroupByChatId(chatId);
+        var userGroup = userService.getUserGroupByChatId(chatId);
         if (userGroup.equals("Не найдено")){
             sendMessageToClient(sendMessage, "Произошла ошибка, вашей группы не найдено");
             LOG.error("Unable to detect groupId for chatId = " + chatId);
         }
         var currDate = LocalDate.now();
         var formattedDate = currDate.format(formatter);
-        var linkToSchedule = BSUIR_SCHEDULE_LINK + "/" + userGroup;
-        System.out.println("link is " + linkToSchedule);
-        //Jsoup
-        try {
-            //not working, 404 response
-            Document doc = Jsoup.connect(linkToSchedule)
-                    .userAgent("Google Chrome: 117. Not A=Brand: 8. Chromium: 117")
-                    .referrer("http://www.google.com")
-                    .get();
-            System.out.println(doc.title());
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-
-        //System.out.println("formatted date is " + formattedDate);
-
     }
 
     private void tomorrowScheduleForUserGroup(SendMessage sendMessage ,Long chatId){
-        var userGroup = scheduleService.getUserGroupByChatId(chatId);
+        var userGroup = userService.getUserGroupByChatId(chatId);
         if (userGroup.equals("Не найдено")){
             sendMessageToClient(sendMessage, "Произошла ошибка, вашей группы не найдено");
             LOG.error("Unable to detect groupId for chatId = " + chatId);
         }
         var currDate = LocalDate.now().plusDays(1);
         var formattedDate = currDate.format(formatter);
-        System.out.println("formatted date is " + formattedDate);
-
     }
 
     private static boolean isValidCommand(String command){
@@ -221,11 +181,10 @@ public class BSUIRScheduleBot extends TelegramLongPollingBot {
                 /return - для просмотра другого расписания
 
                 """;
-        var groupId = scheduleService.getUserGroupByChatId(chatId);
+        var groupId = userService.getUserGroupByChatId(chatId);
         var formattedText = String.format(text, groupId);
         sendMessageToClient(sendMessage, formattedText);
         LOG.debug(groupId);
-        //TODO: доделать просмотр расписания по группе клиента
     }
     private void otherScheduleMessage(SendMessage sendMessage, Long chatId) {
         var text = """
@@ -238,7 +197,6 @@ public class BSUIRScheduleBot extends TelegramLongPollingBot {
 
                 """;
         sendMessageToClient(sendMessage, text);
-        //TODO: доделать просмотр расписания по группе клиента
     }
 
     private static boolean processGroup(String message, Long chatId) {
@@ -339,7 +297,7 @@ public class BSUIRScheduleBot extends TelegramLongPollingBot {
         }
         var username = update.getMessage().getChat().getUserName();
         var groupId = Integer.parseInt(groupIdStr);
-        scheduleService.saveUser(new User(username, chatId, groupId));
+        userService.saveUser(new User(username, chatId, groupId));
         sendMessageToClient(sendMessage, "Ваша группа была успешно за вами закреплена");
         userStates.put(chatId, UserState.REGISTERED);
         instructionsMessage(sendMessage);
