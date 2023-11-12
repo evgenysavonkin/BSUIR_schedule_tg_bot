@@ -19,15 +19,41 @@ public class ScheduleServiceImpl implements ScheduleService {
     }
 
     @Override
-    public String getFormattedScheduleByUserGroup(int groupId) {
+    public String getFormattedScheduleByUserGroup(int groupId, String dayOption) {
         String rawJson = apiService.getRawScheduleJson(groupId);
         Object obj = jsonParser.parseJson(rawJson);
-        ScheduleResponseDto scheduleResponseDto;
+        ScheduleResponseDto scheduleResponseDto = null;
         if (obj instanceof ScheduleResponseDto){
             scheduleResponseDto = (ScheduleResponseDto) obj;
         }
+        if (scheduleResponseDto == null){
+            return "Не найдено!";
+        }
+        String formattedSchedule = """
+                Группа номер: %d
+                День недели: %s
+                
+                Аббревиатура: 
+                
+                
+                
+                """;
+        switch (dayOption){
+            case "/today" -> {
+
+
+            }
+            case "/tomorrow" -> {
+
+            }
+            case "/week" -> {
+
+            }
+        }
 
         return null;
+        //System.out.println(scheduleResponseDto);
+        //return scheduleResponseDto.toString();
     }
 
     public static void main(String[] args) {

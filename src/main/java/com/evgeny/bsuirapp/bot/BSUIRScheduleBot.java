@@ -14,7 +14,6 @@ import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
-import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
@@ -89,66 +88,73 @@ public class BSUIRScheduleBot extends TelegramLongPollingBot {
                 otherScheduleMessage(response, chatId);
             }
             default -> {
+                String scheduleOption = update.getMessage().getText();
+                LOG.debug("schedule option is " + scheduleOption);
+                LOG.debug("USER STATE is " + userState);
                 if (update.getMessage().getText().equals("/return")) {
                     instructionsMessage(response);
-                    break;
                 } else if (!isValidCommand(update.getMessage().getText())) {
                     sendMessageToClient(response, "Команда не распознана");
                     instructionsMessage(response);
-                    break;
-                }
-                switch (userState) {
-                    case REGISTRATION -> {
-                        LOG.debug("current Userstate is " + userState);
-                        processRegistration(response, update, chatId);
-
-                    }
-                    case CHECK_MY_SCHEDULE -> {
-                        String command = update.getMessage().getText();
-                        switch (command){
-                            case "/today" ->{
-                                LOG.debug(userState);
-                                todayScheduleForUserGroup(response ,chatId);
-                            }
-                            case "/tomorrow" ->{
-                                LOG.debug(userState);
-                                tomorrowScheduleForUserGroup(response, chatId);
-                            }
-                            case "/week" ->{
-
-                            }
+                } else {
+                    LOG.debug("IN ELSE CASE");
+                    switch (userState) {
+                        case REGISTRATION -> {
+                            LOG.debug("current Userstate is " + userState);
+                            processRegistration(response, update, chatId);
                         }
+                        case CHECK_MY_SCHEDULE -> {
+                            String command = update.getMessage().getText();
+                            switch (command) {
+                                case "/today" -> {
+                                    LOG.debug(userState);
+                                    todayScheduleForUserGroup(response, chatId);
+                                }
+                                case "/tomorrow" -> {
+                                    LOG.debug(userState);
+                                    tomorrowScheduleForUserGroup(response, chatId);
+                                }
+                                case "/week" -> {
 
+                                }
+                                default -> {
+                                    sendMessageToClient(response, "Введена неверная команда!");
+                                    instructionsMessage(response);
+                                }
+                            }
+
+                        }
                     }
                 }
             }
         }
     }
 
-    private void todayScheduleForUserGroup(SendMessage sendMessage ,Long chatId){
-        var userGroup = userService.getUserGroupByChatId(chatId);
-        if (userGroup.equals("Не найдено")){
+    private void todayScheduleForUserGroup(SendMessage sendMessage, Long chatId) {
+        String userGroupStr = userService.getUserGroupByChatId(chatId);
+        if (userGroupStr.equals("Не найдено")) {
             sendMessageToClient(sendMessage, "Произошла ошибка, вашей группы не найдено");
             LOG.error("Unable to detect groupId for chatId = " + chatId);
         }
-        var currDate = LocalDate.now();
-        var formattedDate = currDate.format(formatter);
+        int userGroup = Integer.parseInt(userGroupStr);
     }
 
-    private void tomorrowScheduleForUserGroup(SendMessage sendMessage ,Long chatId){
-        var userGroup = userService.getUserGroupByChatId(chatId);
-        if (userGroup.equals("Не найдено")){
+    private void tomorrowScheduleForUserGroup(SendMessage sendMessage, Long chatId) {
+        var userGroupStr = userService.getUserGroupByChatId(chatId);
+        if (userGroupStr.equals("Не найдено")) {
             sendMessageToClient(sendMessage, "Произошла ошибка, вашей группы не найдено");
             LOG.error("Unable to detect groupId for chatId = " + chatId);
+            return;
         }
-        var currDate = LocalDate.now().plusDays(1);
-        var formattedDate = currDate.format(formatter);
+        int userGroup = Integer.parseInt(userGroupStr);
+//        String response = scheduleService.getFormattedScheduleByUserGroup(userGroup, "/tomorrow");
+//        sendMessageToClient(sendMessage, response);
+//        var currDate = LocalDate.now().plusDays(1);
+//        var formattedDate = currDate.format(formatter);
     }
 
-    private static boolean isValidCommand(String command){
-        boolean isGroup;
-        isGroup = processGroup(command);
-        return (command.equals("/today") || command.equals("/tomorrow") || command.equals("/week") || isGroup);
+    private static boolean isValidCommand(String command) {
+        return (command.equals("/today") || command.equals("/tomorrow") || command.equals("/week"));
     }
 
     // /my_schedule
@@ -186,6 +192,7 @@ public class BSUIRScheduleBot extends TelegramLongPollingBot {
         sendMessageToClient(sendMessage, formattedText);
         LOG.debug(groupId);
     }
+
     private void otherScheduleMessage(SendMessage sendMessage, Long chatId) {
         var text = """
                 Доступные команды:
@@ -211,6 +218,7 @@ public class BSUIRScheduleBot extends TelegramLongPollingBot {
             return false;
         }
     }
+
     private static boolean processGroup(String message) {
         if (message.length() != 6) {
             return false;

@@ -11,10 +11,10 @@ public class JsonParserImpl implements JsonParser {
     public Object parseJson(String rawJson) {
         //GsonJsonParser gsonJsonParser = new GsonJsonParser();
         ScheduleResponseDto responseDto = new Gson().fromJson(rawJson, ScheduleResponseDto.class);
-        System.out.println(responseDto);
         if (responseDto == null){
             throw new RuntimeException();
         }
+        System.out.println(responseDto);
         return responseDto;
     }
 }
