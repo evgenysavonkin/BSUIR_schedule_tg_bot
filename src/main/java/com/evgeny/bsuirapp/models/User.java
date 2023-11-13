@@ -13,10 +13,6 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
 
-    @Column(name = "username")
-    @NotNull
-    private String username;
-
     @Column(name = "chat_id")
     private long chatId;
 
@@ -28,8 +24,7 @@ public class User {
 
     }
 
-    public User(String username, long chatId, int groupId) {
-        this.username = username;
+    public User(long chatId, int groupId) {
         this.chatId = chatId;
         this.groupId = groupId;
     }
@@ -40,14 +35,6 @@ public class User {
 
     public void setId(int id) {
         this.id = id;
-    }
-
-    public String getUsername() {
-        return username;
-    }
-
-    public void setUsername(String username) {
-        this.username = username;
     }
 
     public long getChatId() {
@@ -71,12 +58,12 @@ public class User {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         User user = (User) o;
-        return id == user.id && chatId == user.chatId && groupId == user.groupId && Objects.equals(username, user.username);
+        return id == user.id && chatId == user.chatId && groupId == user.groupId;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, username, chatId, groupId);
+        return Objects.hash(id, chatId, groupId);
     }
 
 

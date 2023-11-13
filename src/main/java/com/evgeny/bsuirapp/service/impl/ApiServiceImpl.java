@@ -9,6 +9,7 @@ import org.springframework.web.client.RestTemplate;
 public class ApiServiceImpl implements ApiService {
     private static final RestTemplate restTemplate;
     private static final String GET_SCHEDULE_BY_GROUP_LINK_PATTERN = "https://iis.bsuir.by/api/v1/schedule?studentGroup=%d";
+    private static final String GET_WEEK_NUMBER_LINK = "https://iis.bsuir.by/api/v1/schedule/current-week";
 
     static {
         restTemplate = new RestTemplate();
@@ -21,5 +22,14 @@ public class ApiServiceImpl implements ApiService {
             return "Произошла ошибка :(";
         }
         return jsonResponse;
+    }
+
+    @Override
+    public int getNumberOfWeek() {
+        int numberOfWeek = restTemplate.getForObject(GET_WEEK_NUMBER_LINK, Integer.class);
+        if (!(numberOfWeek > 0 && numberOfWeek <= 4)){
+            throw new RuntimeException();
+        }
+        return numberOfWeek;
     }
 }

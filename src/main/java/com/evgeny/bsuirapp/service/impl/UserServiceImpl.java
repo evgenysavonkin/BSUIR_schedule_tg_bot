@@ -1,7 +1,7 @@
 package com.evgeny.bsuirapp.service.impl;
 
 import com.evgeny.bsuirapp.models.User;
-import com.evgeny.bsuirapp.repositories.ScheduleRepository;
+import com.evgeny.bsuirapp.repositories.UserRepository;
 import com.evgeny.bsuirapp.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -12,10 +12,10 @@ import java.util.Optional;
 @Service
 @Transactional(readOnly = true)
 public class UserServiceImpl implements UserService {
-    private final ScheduleRepository scheduleRepository;
+    private final UserRepository scheduleRepository;
 
     @Autowired
-    public UserServiceImpl(ScheduleRepository scheduleRepository) {
+    public UserServiceImpl(UserRepository scheduleRepository) {
         this.scheduleRepository = scheduleRepository;
     }
 

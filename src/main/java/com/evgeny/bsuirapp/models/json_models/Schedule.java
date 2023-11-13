@@ -15,4 +15,5 @@ public class Schedule {
     private List<Day> Вторник;
     private List<Day> Понедельник;
     private List<Day> Среда;
+    private List<Day> Суббота;
 }

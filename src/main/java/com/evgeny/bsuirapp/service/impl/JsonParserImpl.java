@@ -9,7 +9,6 @@ import org.springframework.stereotype.Service;
 public class JsonParserImpl implements JsonParser {
     @Override
     public Object parseJson(String rawJson) {
-        //GsonJsonParser gsonJsonParser = new GsonJsonParser();
         ScheduleResponseDto responseDto = new Gson().fromJson(rawJson, ScheduleResponseDto.class);
         if (responseDto == null){
             throw new RuntimeException();
