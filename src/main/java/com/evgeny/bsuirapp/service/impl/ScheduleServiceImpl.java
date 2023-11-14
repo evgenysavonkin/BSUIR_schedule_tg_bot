@@ -6,10 +6,13 @@ import com.evgeny.bsuirapp.service.ApiService;
 import com.evgeny.bsuirapp.service.JsonParser;
 import com.evgeny.bsuirapp.service.ScheduleService;
 import com.evgeny.bsuirapp.util.DaysConverter;
+import com.evgeny.bsuirapp.util.TemplatesForScheduleToSend;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -34,15 +37,46 @@ public class ScheduleServiceImpl implements ScheduleService {
         if (scheduleResponseDto == null) {
             throw new RuntimeException();
         }
+        String response = null;
         int weekNumber = apiService.getNumberOfWeek();
-        String dayOfWeekRussian = DaysConverter.getTodayOrTomorrow(dayOption);
-        if (dayOfWeekRussian.equals("Ошибка"))
-            return null;
-        return parseScheduleResponseDto(dayOfWeekRussian, weekNumber, scheduleResponseDto);
+        if (dayOption.equals("/today") || dayOption.equals("/tomorrow")) {
+            String dayOfWeek = DaysConverter.getTodayOrTomorrow(dayOption);
+            if (dayOfWeek.equals("Ошибка")) {
+                return null;
+            }
+            response = parseScheduleResponseDto(dayOfWeek, weekNumber, scheduleResponseDto);
+        } else if (dayOption.equals("/week")) {
+            Map<String, List<Day>> dayWithScheduleMap = scheduleResponseDto.getSchedules().getAllDays();
+            Map<String, List<Day>> mapWithWeek = filterMap(dayWithScheduleMap, weekNumber);
+            return writeScheduleOfWeek(mapWithWeek);
+        }
+        if (response == null) {
+            return "Расписание не было найдено :(";
+        }
+        return response;
+    }
+
+    private Map<String, List<Day>> filterMap(Map<String, List<Day>> map, int weekNumber) {
+        Map<String, List<Day>> filteredMap = map.entrySet().stream()
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        entry -> entry.getValue().stream()
+                                .filter(day -> day.getWeekNumber().contains(weekNumber))
+                                .collect(Collectors.toList())
+                ));
+        Map<String, List<Day>> filteredMapWithOrdering = new LinkedHashMap<>();
+        filteredMapWithOrdering.put("Понедельник", filteredMap.get("Понедельник"));
+        filteredMapWithOrdering.put("Вторник", filteredMap.get("Вторник"));
+        filteredMapWithOrdering.put("Среда", filteredMap.get("Среда"));
+        filteredMapWithOrdering.put("Четверг", filteredMap.get("Четверг"));
+        filteredMapWithOrdering.put("Пятница", filteredMap.get("Пятница"));
+        filteredMapWithOrdering.put("Суббота", filteredMap.get("Суббота"));
+        return filteredMapWithOrdering;
+        //return filteredMap;
     }
 
     private String parseScheduleResponseDto(String dayOfWeek, int weekNumber, ScheduleResponseDto responseDto) {
-        List<Day> scheduleOfDay = null;
+        List<Day> scheduleOfDay;
         switch (dayOfWeek) {
             case "Понедельник" -> {
                 scheduleOfDay = responseDto.getSchedules().getПонедельник();
@@ -74,42 +108,25 @@ public class ScheduleServiceImpl implements ScheduleService {
         }
     }
 
+    private String writeScheduleOfWeek(Map<String, List<Day>> scheduleMap) {
+        StringBuilder stringBuilder = new StringBuilder();
+        for (var entry : scheduleMap.entrySet()) {
+            if (entry.getValue() != null || !entry.getValue().isEmpty()) {
+                stringBuilder.append("\n" + entry.getKey() + "\n");
+                for (Day day : entry.getValue()) {
+                    configureScheduleForStringBuilder(stringBuilder, day);
+                }
+            }
+        }
+        return stringBuilder.toString();
+    }
+
+
     private String writeScheduleOfDay(List<Day> days, int weekNumber) {
-        //ОБЩАЯ ПАРА
-        String dayToSendFormatWithoutSubgroupsTemplate = """
-                                
-                Начало занятия: %s
-                Сокращенное название предмета: %s
-                Тип занятия: %s
-                Аудитория: %s
-                Конец занятия: %s 
-                                
-                """;
-        //ПОДГРУППЫ
-        String dayToSendFormatWithSubgroupsTemplate = """
-                                
-                Начало занятия: %s
-                Сокращенное название предмета: %s
-                Тип занятия: %s
-                Подгруппа номер: %d
-                Аудитория: %s
-                Конец занятия: %s 
-                                
-                """;
         StringBuilder stringBuilder = new StringBuilder();
         days = days.stream().filter(d -> d.getWeekNumber().contains(weekNumber)).collect(Collectors.toList());
-        //System.out.println(days);
         for (Day currDay : days) {
-            System.out.println(currDay);
-            String scheduleOfSubject = String.format(dayToSendFormatWithSubgroupsTemplate,
-                    currDay.getStartLessonTime(),
-                    currDay.getSubject(),
-                    currDay.getLessonTypeAbbrev(),
-                    currDay.getNumSubgroup(),
-                    currDay.getAuditories().get(0),
-                    currDay.getEndLessonTime()
-                    );
-            stringBuilder.append(scheduleOfSubject);
+            configureScheduleForStringBuilder(stringBuilder, currDay);
         }
         if (stringBuilder.length() == 0) {
             return "Ошибка";
@@ -117,5 +134,39 @@ public class ScheduleServiceImpl implements ScheduleService {
         return stringBuilder.toString();
     }
 
-
+    private static void configureScheduleForStringBuilder(StringBuilder stringBuilder, Day currDay) {
+        String scheduleOfSubject;
+        if (currDay.getLessonTypeAbbrev().equals("Консультация") || currDay.getLessonTypeAbbrev().equals("Экзамен")) {
+            return;
+        }
+        //Физра, без аудитории и общая группа
+        if ((currDay.getAuditories() == null || currDay.getAuditories().isEmpty()) && currDay.getNumSubgroup() == 0) {
+            scheduleOfSubject = String.format(TemplatesForScheduleToSend.subjectsWithoutAuditoriesTemplate(),
+                    currDay.getStartLessonTime(),
+                    currDay.getSubject(),
+                    currDay.getLessonTypeAbbrev(),
+                    currDay.getEndLessonTime()
+            );
+        } else if ((currDay.getAuditories() != null || !currDay.getAuditories().isEmpty()) && currDay.getNumSubgroup() == 0) {
+            scheduleOfSubject = String.format(TemplatesForScheduleToSend.subjectsWithUnitedGroupsTemplate(),
+                    currDay.getStartLessonTime(),
+                    currDay.getSubject(),
+                    currDay.getLessonTypeAbbrev(),
+                    currDay.getAuditories().get(0),
+                    currDay.getEndLessonTime()
+            );
+        } else {
+            scheduleOfSubject = String.format(TemplatesForScheduleToSend.subjectsWithSubgroupsTemplate(),
+                    currDay.getStartLessonTime(),
+                    currDay.getSubject(),
+                    currDay.getLessonTypeAbbrev(),
+                    currDay.getNumSubgroup(),
+                    currDay.getAuditories().get(0),
+                    currDay.getEndLessonTime()
+            );
+        }
+        if (scheduleOfSubject != null) {
+            stringBuilder.append(scheduleOfSubject);
+        }
+    }
 }

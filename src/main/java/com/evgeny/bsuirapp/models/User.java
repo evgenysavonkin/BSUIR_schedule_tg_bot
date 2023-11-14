@@ -2,11 +2,17 @@ package com.evgeny.bsuirapp.models;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.util.Objects;
 
 @Entity
 @Table(name = "users")
+@Getter
+@Setter
+@NoArgsConstructor
 public class User {
     @Id
     @Column(name = "id")
@@ -20,36 +26,8 @@ public class User {
     @NotNull
     private int groupId;
 
-    public User() {
-
-    }
-
     public User(long chatId, int groupId) {
         this.chatId = chatId;
-        this.groupId = groupId;
-    }
-
-    public int getId() {
-        return id;
-    }
-
-    public void setId(int id) {
-        this.id = id;
-    }
-
-    public long getChatId() {
-        return chatId;
-    }
-
-    public void setChatId(long chatId) {
-        this.chatId = chatId;
-    }
-
-    public int getGroupId() {
-        return groupId;
-    }
-
-    public void setGroupId(int groupId) {
         this.groupId = groupId;
     }
 
@@ -65,6 +43,4 @@ public class User {
     public int hashCode() {
         return Objects.hash(id, chatId, groupId);
     }
-
-
 }

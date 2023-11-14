@@ -1,6 +1,5 @@
 package com.evgeny.bsuirapp.bot;
 
-import com.evgeny.bsuirapp.enums.ScheduleState;
 import com.evgeny.bsuirapp.enums.UserState;
 import com.evgeny.bsuirapp.models.User;
 import com.evgeny.bsuirapp.service.ScheduleService;
@@ -33,7 +32,7 @@ public class BSUIRScheduleBot extends TelegramLongPollingBot {
     private final ScheduleService scheduleService;
 
     private final Map<Long, UserState> userStates = new HashMap<>();
-    private final Map<Long, ScheduleState> userScheduleStates = new HashMap<>();
+    private final Map<Long, UserState> userScheduleStates = new HashMap<Long, UserState>();
     private static final Logger LOG = Logger.getLogger(BSUIRScheduleBot.class);
     private static boolean isRegistered;
 
@@ -55,54 +54,111 @@ public class BSUIRScheduleBot extends TelegramLongPollingBot {
         var chatId = update.getMessage().getChatId();
         var response = new SendMessage();
         response.setChatId(chatId);
-        switch (message){
+        switch (message) {
+            case START -> {
+                if (!isUserRegistered(chatId)) {
+                    startCommand(response);
+                } else {
+                    startCommandIfRegistered(response);
+                }
+            }
+            case REG -> {
+                if (!isUserRegistered(chatId)) {
+                    sendMessageToClient(response, "Введите, пожалуйста, номер группы");
+                    userScheduleStates.put(chatId, UserState.REGISTRATION);
+                } else {
+                    startCommandIfRegistered(response);
+                }
+            }
+            case MY_SCHEDULE -> {
+                userWithGroupViewScheduleMessage(response, chatId);
+                userScheduleStates.put(chatId, UserState.CHECK_MY_SCHEDULE);
+            }
+            case OTHER_SCHEDULE -> {
 
-        };
-    }
-
-    private void handleRegCommand(SendMessage sendMessage, Update update, long chatId) {
-        //processRegistration();
-        boolean isRegistered = userService.isUserExists(chatId);
-        if (isRegistered) {
-            startCommandIfRegistered(sendMessage);
-            return;
+            }
+            case RETURN_COMMAND -> {
+                instructionsMessage(response);
+            }
+            default -> {
+                if (CommandsValidator.isGroupNumber(message)) {
+                    int userGroup = Integer.parseInt(message);
+                    System.out.println("default case: userGroup is " + userGroup);
+                    processRegistrationWithGroupNumber(response, chatId, userGroup);
+                }
+                UserState currStateOfSchedule = userScheduleStates.getOrDefault(chatId, UserState.RETURN);
+                System.out.println("currState is " + currStateOfSchedule);
+                switch (currStateOfSchedule) {
+                    case CHECK_MY_SCHEDULE -> {
+                        switch (message) {
+                            case TODAY_SCHEDULE -> {
+                                scheduleForUserGroupMessage(response, chatId, "/today");
+                                instructionsMessage(response);
+                            }
+                            case TOMORROW_SCHEDULE -> {
+                                scheduleForUserGroupMessage(response, chatId, "/tomorrow");
+                                instructionsMessage(response);
+                            }
+                            case WEEK_SCHEDULE -> {
+                                scheduleForUserGroupMessage(response, chatId, "/week");
+                                instructionsMessage(response);
+                            }
+                            case RETURN_COMMAND -> {
+                                instructionsMessage(response);
+                                userScheduleStates.put(chatId, UserState.IDLE);
+                            }
+                        }
+                    }
+                    case CHECK_OTHER_SCHEDULE -> {
+                        switch (message) {
+                            case TODAY_SCHEDULE -> {
+                                scheduleForUserGroupMessage(response, chatId, "/today");
+                                instructionsMessage(response);
+                            }
+                            case TOMORROW_SCHEDULE -> {
+                                scheduleForUserGroupMessage(response, chatId, "/tomorrow");
+                                instructionsMessage(response);
+                            }
+                            case WEEK_SCHEDULE -> {
+                                scheduleForUserGroupMessage(response, chatId, "/week");
+                                instructionsMessage(response);
+                            }
+                            case RETURN_COMMAND -> {
+                                instructionsMessage(response);
+                                userScheduleStates.put(chatId, UserState.IDLE);
+                            }
+                        }
+                    }
+                    case RETURN -> {
+                        instructionsMessage(response);
+                        userScheduleStates.put(chatId, UserState.IDLE);
+                    }
+                }
+            }
         }
-        processRegistration(sendMessage, update, chatId);
+
     }
 
-    private void handleStartCommand(SendMessage sendMessage, long chatId) {
-        //Проверить существует ли пользователь
-        //Если есть по этому chatId, то вернуть, что он уже зареган
-        //Иначе вывести ему полное приветствие
-        boolean isExists = userService.isUserExists(chatId);
-        System.out.println("Result if exists " + isExists);
-        if (isExists) {
-            startCommandIfRegistered(sendMessage);
-            return;
-        }
-        startCommand(sendMessage);
+    private void processRegistrationWithGroupNumber(SendMessage sendMessage, Long chatId, int groupNumber) {
+        userService.saveUser(new User(chatId, groupNumber));
+        sendMessageToClient(sendMessage, "Ваша группа была успешно за вами закреплена");
+        instructionsMessage(sendMessage);
+        userScheduleStates.put(chatId, UserState.REGISTERED);
     }
 
-    private void todayScheduleForUserGroup(SendMessage sendMessage, Long chatId) {
+    private boolean isUserRegistered(long chatId) {
+        return userService.isUserExists(chatId);
+    }
+
+    private void scheduleForUserGroupMessage(SendMessage sendMessage, Long chatId, String dayOption) {
         String userGroupStr = userService.getUserGroupByChatId(chatId);
         if (userGroupStr.equals("Не найдено")) {
             sendMessageToClient(sendMessage, "Произошла ошибка, вашей группы не найдено");
+            instructionsMessage(sendMessage);
             LOG.error("Unable to detect groupId for chatId = " + chatId);
         }
         int userGroup = Integer.parseInt(userGroupStr);
-        String response = scheduleService.getFormattedScheduleByUserGroup(userGroup, "/today");
-        sendMessageToClient(sendMessage, response);
-    }
-
-    private void tomorrowScheduleForUserGroup(SendMessage sendMessage, Long chatId) {
-        var userGroupStr = userService.getUserGroupByChatId(chatId);
-        if (userGroupStr.equals("Не найдено")) {
-            sendMessageToClient(sendMessage, "Произошла ошибка, вашей группы не найдено");
-            LOG.error("Unable to detect groupId for chatId = " + chatId);
-            return;
-        }
-        int userGroup = Integer.parseInt(userGroupStr);
-        String response = scheduleService.getFormattedScheduleByUserGroup(userGroup, "/tomorrow");
+        String response = scheduleService.getFormattedScheduleByUserGroup(userGroup, dayOption);
         sendMessageToClient(sendMessage, response);
     }
 
@@ -120,20 +176,6 @@ public class BSUIRScheduleBot extends TelegramLongPollingBot {
         var groupId = userService.getUserGroupByChatId(chatId);
         var formattedText = String.format(text, groupId);
         sendMessageToClient(sendMessage, formattedText);
-        LOG.debug(groupId);
-    }
-
-    private void otherGroupsViewScheduleMessage(SendMessage sendMessage, Long chatId) {
-        var text = """
-                Доступные команды:
-
-                /today
-                /tomorrow
-                /week
-                /return - для просмотра другого расписания
-
-                """;
-        sendMessageToClient(sendMessage, text);
     }
 
     private void sendMessageToClient(SendMessage sendMessage, String text) {
@@ -198,18 +240,6 @@ public class BSUIRScheduleBot extends TelegramLongPollingBot {
                 По всем вопросам обращайтесь к разработчику @eugenezkh
                 """;
         sendMessageToClient(sendMessage, text);
-    }
-
-    private void processRegistration(SendMessage sendMessage, Update update, Long chatId) {
-        sendMessageToClient(sendMessage, "Введите, пожалуйста, номер группы");
-        var groupIdStr = update.getMessage().getText();
-        if (!CommandsValidator.isGroupNumber(groupIdStr)) {
-            sendMessageToClient(sendMessage, "Произошла ошибка, проверьте правильность введенной группы");
-        }
-        var groupId = Integer.parseInt(groupIdStr);
-        userService.saveUser(new User(chatId, groupId));
-        sendMessageToClient(sendMessage, "Ваша группа была успешно за вами закреплена");
-        instructionsMessage(sendMessage);
     }
 
 

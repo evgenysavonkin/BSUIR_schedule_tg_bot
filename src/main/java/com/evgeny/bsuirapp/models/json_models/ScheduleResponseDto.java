@@ -18,5 +18,4 @@ public class ScheduleResponseDto {
     private String employeeDto;
     private StudentGroupDto studentGroupDto;
     private Schedule schedules;
-
 }
