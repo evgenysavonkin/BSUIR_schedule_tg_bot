@@ -30,11 +30,9 @@ public class BSUIRScheduleBot extends TelegramLongPollingBot {
     private static final String RETURN_COMMAND = "/return";
     private final UserService userService;
     private final ScheduleService scheduleService;
-
-    private final Map<Long, UserState> userStates = new HashMap<>();
-    private final Map<Long, UserState> userScheduleStates = new HashMap<Long, UserState>();
+    private final Map<Long, UserState> userScheduleStates = new HashMap<>();
+    private final Map<Long, Integer> userOtherGroup = new HashMap<>();
     private static final Logger LOG = Logger.getLogger(BSUIRScheduleBot.class);
-    private static boolean isRegistered;
 
     @Autowired
     public BSUIRScheduleBot(@Value("${bot.token}") String botToken,
@@ -49,7 +47,6 @@ public class BSUIRScheduleBot extends TelegramLongPollingBot {
         if (!update.hasMessage() || !update.getMessage().hasText()) {
             return;
         }
-        LOG.debug(update.getMessage().getText());
         var message = update.getMessage().getText();
         var chatId = update.getMessage().getChatId();
         var response = new SendMessage();
@@ -75,19 +72,22 @@ public class BSUIRScheduleBot extends TelegramLongPollingBot {
                 userScheduleStates.put(chatId, UserState.CHECK_MY_SCHEDULE);
             }
             case OTHER_SCHEDULE -> {
-
+                sendMessageToClient(response, "Введите, пожалуйста, номер группы");
+                userScheduleStates.put(chatId, UserState.CHECK_OTHER_SCHEDULE);
             }
             case RETURN_COMMAND -> {
                 instructionsMessage(response);
             }
             default -> {
-                if (CommandsValidator.isGroupNumber(message)) {
+                if (!CommandsValidator.isValidCommand(message) && !CommandsValidator.isGroupNumber(message)) {
+                    sendMessageToClient(response, "Команда не распознана!");
+                    instructionsMessage(response);
+                }
+                if (CommandsValidator.isGroupNumber(message) && !(userScheduleStates.get(chatId) == UserState.CHECK_OTHER_SCHEDULE)) {
                     int userGroup = Integer.parseInt(message);
-                    System.out.println("default case: userGroup is " + userGroup);
                     processRegistrationWithGroupNumber(response, chatId, userGroup);
                 }
                 UserState currStateOfSchedule = userScheduleStates.getOrDefault(chatId, UserState.RETURN);
-                System.out.println("currState is " + currStateOfSchedule);
                 switch (currStateOfSchedule) {
                     case CHECK_MY_SCHEDULE -> {
                         switch (message) {
@@ -110,17 +110,31 @@ public class BSUIRScheduleBot extends TelegramLongPollingBot {
                         }
                     }
                     case CHECK_OTHER_SCHEDULE -> {
+                        if (CommandsValidator.isGroupNumber(message)) {
+                            int otherGroupNumber = Integer.parseInt(message);
+                            userOtherGroup.put(chatId, otherGroupNumber);
+                            userViewScheduleMessage(response, chatId);
+                        }
                         switch (message) {
                             case TODAY_SCHEDULE -> {
-                                scheduleForUserGroupMessage(response, chatId, "/today");
+                                int otherGroupOfUser = userOtherGroup.get(chatId);
+                                if (otherGroupOfUser != 0) {
+                                    scheduleForUserOtherGroupMessage(response, "/today", otherGroupOfUser);
+                                }
                                 instructionsMessage(response);
                             }
                             case TOMORROW_SCHEDULE -> {
-                                scheduleForUserGroupMessage(response, chatId, "/tomorrow");
+                                int otherGroupOfUser = userOtherGroup.get(chatId);
+                                if (otherGroupOfUser != 0) {
+                                    scheduleForUserOtherGroupMessage(response, "/tomorrow", otherGroupOfUser);
+                                }
                                 instructionsMessage(response);
                             }
                             case WEEK_SCHEDULE -> {
-                                scheduleForUserGroupMessage(response, chatId, "/week");
+                                int otherGroupOfUser = userOtherGroup.get(chatId);
+                                if (otherGroupOfUser != 0) {
+                                    scheduleForUserOtherGroupMessage(response, "/week", otherGroupOfUser);
+                                }
                                 instructionsMessage(response);
                             }
                             case RETURN_COMMAND -> {
@@ -162,9 +176,29 @@ public class BSUIRScheduleBot extends TelegramLongPollingBot {
         sendMessageToClient(sendMessage, response);
     }
 
+    private void scheduleForUserOtherGroupMessage(SendMessage sendMessage, String dayOption, int groupNumber) {
+        String response = scheduleService.getFormattedScheduleByUserGroup(groupNumber, dayOption);
+        sendMessageToClient(sendMessage, response);
+    }
+
     private void userWithGroupViewScheduleMessage(SendMessage sendMessage, Long chatId) {
         var text = """
                 Номер вашей группы %s
+                Доступные команды:
+
+                /today
+                /tomorrow
+                /week
+                /return - для просмотра другого расписания
+
+                """;
+        var groupId = userService.getUserGroupByChatId(chatId);
+        var formattedText = String.format(text, groupId);
+        sendMessageToClient(sendMessage, formattedText);
+    }
+
+    private void userViewScheduleMessage(SendMessage sendMessage, Long chatId) {
+        var text = """
                 Доступные команды:
 
                 /today

@@ -42,7 +42,7 @@ public class ScheduleServiceImpl implements ScheduleService {
         if (dayOption.equals("/today") || dayOption.equals("/tomorrow")) {
             String dayOfWeek = DaysConverter.getTodayOrTomorrow(dayOption);
             if (dayOfWeek.equals("Ошибка")) {
-                return null;
+                return "Произошла ошибка :(";
             }
             response = parseScheduleResponseDto(dayOfWeek, weekNumber, scheduleResponseDto);
         } else if (dayOption.equals("/week")) {
@@ -72,7 +72,6 @@ public class ScheduleServiceImpl implements ScheduleService {
         filteredMapWithOrdering.put("Пятница", filteredMap.get("Пятница"));
         filteredMapWithOrdering.put("Суббота", filteredMap.get("Суббота"));
         return filteredMapWithOrdering;
-        //return filteredMap;
     }
 
     private String parseScheduleResponseDto(String dayOfWeek, int weekNumber, ScheduleResponseDto responseDto) {
@@ -111,7 +110,7 @@ public class ScheduleServiceImpl implements ScheduleService {
     private String writeScheduleOfWeek(Map<String, List<Day>> scheduleMap) {
         StringBuilder stringBuilder = new StringBuilder();
         for (var entry : scheduleMap.entrySet()) {
-            if (entry.getValue() != null || !entry.getValue().isEmpty()) {
+            if (entry.getValue() != null && !entry.getValue().isEmpty()) {
                 stringBuilder.append("\n" + entry.getKey() + "\n");
                 for (Day day : entry.getValue()) {
                     configureScheduleForStringBuilder(stringBuilder, day);
@@ -139,7 +138,6 @@ public class ScheduleServiceImpl implements ScheduleService {
         if (currDay.getLessonTypeAbbrev().equals("Консультация") || currDay.getLessonTypeAbbrev().equals("Экзамен")) {
             return;
         }
-        //Физра, без аудитории и общая группа
         if ((currDay.getAuditories() == null || currDay.getAuditories().isEmpty()) && currDay.getNumSubgroup() == 0) {
             scheduleOfSubject = String.format(TemplatesForScheduleToSend.subjectsWithoutAuditoriesTemplate(),
                     currDay.getStartLessonTime(),

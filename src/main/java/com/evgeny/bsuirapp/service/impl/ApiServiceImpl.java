@@ -1,7 +1,6 @@
 package com.evgeny.bsuirapp.service.impl;
 
 import com.evgeny.bsuirapp.service.ApiService;
-import org.jsoup.Connection;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -14,11 +13,13 @@ public class ApiServiceImpl implements ApiService {
     static {
         restTemplate = new RestTemplate();
     }
+
     @Override
     public String getRawScheduleJson(int groupId) {
         String schedule_link = String.format(GET_SCHEDULE_BY_GROUP_LINK_PATTERN, groupId);
         String jsonResponse = restTemplate.getForObject(schedule_link, String.class);
-        if (jsonResponse == null || jsonResponse.length() == 0){
+        if (jsonResponse == null || jsonResponse.length() == 0) {
+            //TODO: Реализовать отлов ошибок и их обработку
             return "Произошла ошибка :(";
         }
         return jsonResponse;
@@ -27,7 +28,7 @@ public class ApiServiceImpl implements ApiService {
     @Override
     public int getNumberOfWeek() {
         int numberOfWeek = restTemplate.getForObject(GET_WEEK_NUMBER_LINK, Integer.class);
-        if (!(numberOfWeek > 0 && numberOfWeek <= 4)){
+        if (!(numberOfWeek > 0 && numberOfWeek <= 4)) {
             throw new RuntimeException();
         }
         return numberOfWeek;

@@ -28,7 +28,7 @@ public class BotConfig {
     private final Environment environment;
 
     @Autowired
-    public BotConfig(@Value("${bot.name}")String botName,@Value("${bot.token}") String token, Environment environment) {
+    public BotConfig(@Value("${bot.name}") String botName, @Value("${bot.token}") String token, Environment environment) {
         this.botName = botName;
         this.token = token;
         this.environment = environment;
