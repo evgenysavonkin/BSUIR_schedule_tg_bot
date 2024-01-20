@@ -22,10 +22,9 @@ import java.util.Properties;
 @Configuration
 @PropertySource("application.properties")
 public class BotConfig {
-    private final String botName;
-
-    private final String token;
     private final Environment environment;
+    private final String botName;
+    private final String token;
 
     @Autowired
     public BotConfig(@Value("${bot.name}") String botName, @Value("${bot.token}") String token, Environment environment) {
